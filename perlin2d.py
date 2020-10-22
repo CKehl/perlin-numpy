@@ -1,4 +1,9 @@
 import numpy as np
+from numpy.random import MT19937
+from numpy.random import RandomState, SeedSequence
+from scipy import ndimage
+#from datetime import datetime
+from time import time
 
 def generate_perlin_noise_2d(shape, res):
     def f(t):
@@ -26,14 +31,42 @@ def generate_perlin_noise_2d(shape, res):
     return np.sqrt(2)*((1-t[:,:,1])*n0 + t[:,:,1]*n1)
         
 def generate_fractal_noise_2d(shape, res, octaves=1, persistence=0.5):
+    #np.random.seed(seed=datetime.now())
+    #np.random.seed(seed=int(round(time() * 1000)))
+    rs = RandomState( MT19937(SeedSequence(int(round(time() * 1000)))) )
     noise = np.zeros(shape)
     frequency = 1
     amplitude = 1
-    for _ in range(octaves):
+    for m_i in range(octaves):
+        #print("Generate subfield {}: shape={}, resolution={} with res={} and frequency={}".format(m_i, shape, (frequency*res[0], frequency*res[1]), res, frequency))
         noise += amplitude * generate_perlin_noise_2d(shape, (frequency*res[0], frequency*res[1]))
         frequency *= 2
         amplitude *= persistence
     return noise
+
+def generate_fractal_noise_temporal2d(shape, tsteps, res, octaves=1, persistence=0.5, max_shift=((-1, 1), (-1, 1))):
+    #np.random.seed(seed=datetime.now())
+    #np.random.seed(int(round(time() * 1000)))
+    rs = RandomState( MT19937(SeedSequence(int(round(time() * 1000)))) )
+    noise = np.zeros(shape)
+    frequency = 1
+    amplitude = 1
+    for m_i in range(octaves):
+        #print("Generate subfield {}: shape={}, resolution={} with res={} and frequency={}".format(m_i, shape, (frequency*res[0], frequency*res[1]), res, frequency))
+        noise += amplitude * generate_perlin_noise_2d(shape, (frequency*res[0], frequency*res[1]))
+        frequency *= 2
+        amplitude *= persistence
+
+    ishape = (tsteps, )+shape
+    result = np.zeros(ishape)
+    timage = np.zeros(noise.shape)
+    for i in range(0, tsteps):
+        result[i,:,:] = noise
+        sx = np.random.randint(max_shift[0][0], max_shift[0][1], dtype=np.int32)
+        sy = np.random.randint(max_shift[1][0], max_shift[1][1], dtype=np.int32)
+        ndimage.shift(noise, (sx, sy), timage, order=3, mode='mirror')
+        noise = timage
+    return result
     
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -45,6 +78,7 @@ if __name__ == '__main__':
     
     np.random.seed(0)
     noise = generate_fractal_noise_2d((256, 256), (8, 8), 5)
+    #noise = generate_fractal_noise_2d((2048, 512), (64, 16), 8, 0.8)
     plt.figure()
     plt.imshow(noise, cmap='gray', interpolation='lanczos')
     plt.colorbar()
